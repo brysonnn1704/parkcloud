@@ -13,7 +13,7 @@ resource "aws_db_subnet_group" "parkcloud" {
 resource "aws_db_instance" "postgres" {
   identifier             = "${var.project_name}-postgres-db"
   engine                 = "postgres"
-  engine_version         = "16.3"
+  engine_version         = "16.14"
   instance_class         = var.db_instance_class
   allocated_storage      = 20
   max_allocated_storage  = 20

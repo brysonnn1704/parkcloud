@@ -2,8 +2,7 @@
 
 const getApiBaseUrl = () => {
   if (window.PARKCLOUD_API_URL) return window.PARKCLOUD_API_URL;
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  return 'http://localhost:5000';
+  return 'http://parkcloud-alb-2029168588.ap-south-1.elb.amazonaws.com';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
