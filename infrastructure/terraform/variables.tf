@@ -4,6 +4,12 @@ variable "aws_region" {
   default     = "ap-south-1"
 }
 
+variable "aws_profile" {
+  description = "AWS CLI profile for authentication"
+  type        = string
+  default     = "parkcloud-terraform"
+}
+
 variable "project_name" {
   description = "Project Name identifier"
   type        = string

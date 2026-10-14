@@ -6,7 +6,10 @@ async function runMigrations() {
   console.log('[Migration] Starting database migration...');
   const client = await pool.connect();
   try {
-    const migrationFile = path.resolve(__dirname, '../../../database/migrations/001_initial_schema.sql');
+    let migrationFile = path.resolve(__dirname, '../../../database/migrations/001_initial_schema.sql');
+    if (!fs.existsSync(migrationFile)) {
+      migrationFile = path.resolve(__dirname, 'migrations/001_initial_schema.sql');
+    }
     if (!fs.existsSync(migrationFile)) {
       throw new Error(`Migration file not found at: ${migrationFile}`);
     }

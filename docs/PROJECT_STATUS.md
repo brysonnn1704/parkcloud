@@ -11,8 +11,8 @@
 - [x] **Phase 2: Local Development** (PostgreSQL schema with `btree_gist` temporal exclusion, Express REST API backend, React + Vite + Electron desktop app, S3 upload service with local fallback, IST analytics engine, seed data for 5 Indian lots).
 - [x] **Phase 3: Automated Testing** (23/23 tests passed: Auth, lots, slots, Indian plate validation, high-concurrency race condition testing with 5 simultaneous requests, operator check-in/out, PDF/CSV generation).
 - [x] **Phase 4: Infrastructure as Code** (Complete Terraform stack for VPC, 4 subnets, IGW, Route Tables, S3 Gateway Endpoint, Security Groups, ALB, EC2 ASG with systemd bootstrap, RDS PostgreSQL, S3 private bucket, IAM role & policies, SSM Parameter Store SecureString, CloudWatch Log Group, Alarms, Dashboard, SNS Topic, and AWS Budgets).
-- [ ] **Phase 5: Approval Gate & Cloud Provisioning** (Itemized ₹/USD estimate presented; pending user's AWS session credential refresh and explicit spending approval).
-- [ ] **Phase 6: Cloud Validation & End-to-End Testing** (Deploy infrastructure via `terraform apply`, run migrations against RDS, verify on deployed ALB URL).
+- [/] **Phase 5: Approval Gate & Cloud Provisioning** (AWS CLI `login_session` solved via `credential_process`; Terraform plan generated and saved: 55 to add, 0 to change, 0 to destroy; awaiting user's explicit apply approval and notification email).
+- [ ] **Phase 6: Cloud Validation & End-to-End Testing** (Deploy infrastructure via `terraform apply parkcloud.tfplan`, verify on deployed ALB URL).
 - [x] **Phase 7: Documentation, Architecture Diagram & Viva Notes** (Draw.io XML diagram, service justifications, cost report, console guide, viva defense notes, faculty demo script).
 - [x] **Phase 8: Final Audit & Rubric Verification** (All 18 college rubric conditions audited and verified).
 

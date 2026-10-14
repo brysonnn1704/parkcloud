@@ -46,15 +46,11 @@ resource "aws_launch_template" "app" {
 
     echo "=== ParkCloud EC2 Instance Bootstrap Starting ==="
 
-    # 1. Update OS and install Node.js 20, git, postgresql
+    # 1. Update OS and install Node.js 20, git, postgresql, unzip
     dnf update -y
-    dnf install -y nodejs git postgresql15 amazon-cloudwatch-agent
+    dnf install -y nodejs git postgresql15 unzip amazon-cloudwatch-agent
 
-    # 2. Setup application directory
-    mkdir -p /opt/parkcloud
-    cd /opt/parkcloud
-
-    # 3. Pull SSM Parameters into local env file (Safe, zero hardcoded keys in repo)
+    # 2. Pull SSM Parameters into local env file (Safe, zero hardcoded keys in repo)
     AWS_REGION="${var.aws_region}"
     DB_HOST=$(aws ssm get-parameter --name "/${var.project_name}/${var.environment}/db/host" --region $AWS_REGION --query "Parameter.Value" --output text)
     DB_PORT=$(aws ssm get-parameter --name "/${var.project_name}/${var.environment}/db/port" --region $AWS_REGION --query "Parameter.Value" --output text)
@@ -64,6 +60,7 @@ resource "aws_launch_template" "app" {
     JWT_SECRET=$(aws ssm get-parameter --name "/${var.project_name}/${var.environment}/jwt/secret" --with-decryption --region $AWS_REGION --query "Parameter.Value" --output text)
     S3_BUCKET=$(aws ssm get-parameter --name "/${var.project_name}/${var.environment}/s3/bucket" --region $AWS_REGION --query "Parameter.Value" --output text)
 
+    mkdir -p /opt/parkcloud
     cat <<EOT > /opt/parkcloud/.env
     PORT=5000
     NODE_ENV=production
@@ -81,7 +78,30 @@ resource "aws_launch_template" "app" {
 
     chmod 600 /opt/parkcloud/.env
 
-    # 4. Create systemd unit service
+    # 3. Pull deployment artifact from S3
+    echo "Downloading backend deployment artifact from s3://$S3_BUCKET/deploy/backend.zip..."
+    aws s3 cp "s3://$S3_BUCKET/deploy/backend.zip" /tmp/backend.zip --region $AWS_REGION
+    unzip -q -o /tmp/backend.zip -d /opt/parkcloud
+    cd /opt/parkcloud
+    npm install --omit=dev
+
+    # 4. Wait for RDS PostgreSQL and apply migrations & seed
+    echo "Verifying database connectivity..."
+    for i in {1..30}; do
+      if PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "SELECT 1;" >/dev/null 2>&1; then
+        echo "Database connection verified."
+        break
+      fi
+      echo "Waiting for RDS PostgreSQL to accept connections ($i/30)..."
+      sleep 5
+    done
+
+    node src/database/migrate.js || true
+    node src/database/seed.js || true
+
+    chown -R ec2-user:ec2-user /opt/parkcloud
+
+    # 5. Create systemd unit service
     cat <<EOT > /etc/systemd/system/parkcloud.service
     [Unit]
     Description=ParkCloud Smart Parking REST API Service
@@ -104,6 +124,7 @@ resource "aws_launch_template" "app" {
 
     systemctl daemon-reload
     systemctl enable parkcloud.service
+    systemctl start parkcloud.service
     echo "=== ParkCloud Bootstrap Completed ==="
   EOF
   )

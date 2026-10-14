@@ -79,3 +79,27 @@ resource "aws_s3_bucket_lifecycle_configuration" "storage" {
     }
   }
 }
+
+# 6. Backend Application Deployment Bundle
+data "archive_file" "backend_deploy" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../backend"
+  output_path = "${path.module}/backend_deploy.zip"
+  excludes = [
+    "node_modules",
+    "uploads",
+    ".git"
+  ]
+}
+
+resource "aws_s3_object" "backend_bundle" {
+  bucket                 = aws_s3_bucket.storage.id
+  key                    = "deploy/backend.zip"
+  source                 = data.archive_file.backend_deploy.output_path
+  source_hash            = data.archive_file.backend_deploy.output_base64sha256
+  server_side_encryption = "AES256"
+
+  depends_on = [
+    aws_s3_bucket_policy.enforce_tls
+  ]
+}
