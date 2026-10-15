@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
+import { useToast } from '../context/ToastContext';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { 
   CalendarCheck, 
   Clock, 
@@ -10,15 +12,19 @@ import {
   RefreshCw, 
   Download,
   Car,
-  CheckCircle 
+  CheckCircle,
+  Copy,
+  Printer
 } from 'lucide-react';
 
 export const MyBookingsView = ({ setView }) => {
+  const toast = useToast();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('ACTIVE');
   const [selectedPass, setSelectedPass] = useState(null);
+  const [cancellingBooking, setCancellingBooking] = useState(null);
   const [cancellingId, setCancellingId] = useState(null);
 
   const fetchBookings = async () => {
@@ -40,19 +46,25 @@ export const MyBookingsView = ({ setView }) => {
     fetchBookings();
   }, []);
 
-  const handleCancel = async (bookingId) => {
-    if (!window.confirm('Are you sure you want to cancel this booking? Free cancellation is permitted up to 30 minutes before scheduled start.')) {
-      return;
-    }
+  const handleConfirmCancel = async () => {
+    if (!cancellingBooking) return;
+    const bookingId = cancellingBooking.id;
     setCancellingId(bookingId);
     try {
       await api.cancelBooking(bookingId, 'Cancelled from user dashboard');
+      toast.success(`Booking ${cancellingBooking.booking_reference} cancelled successfully. Slot released.`);
+      setCancellingBooking(null);
       fetchBookings();
     } catch (err) {
-      alert(err.message || 'Failed to cancel booking');
+      toast.error(err.message || 'Failed to cancel booking');
     } finally {
       setCancellingId(null);
     }
+  };
+
+  const handleCopyRef = (ref) => {
+    navigator.clipboard.writeText(ref);
+    toast.info(`Copied reference ${ref} to clipboard.`);
   };
 
   const filteredBookings = bookings.filter(b => {
@@ -65,7 +77,7 @@ export const MyBookingsView = ({ setView }) => {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
         <div>
-          <h1 style={{ fontSize: '26px', fontWeight: '800' }}>My Parking Reservations</h1>
+          <h1 style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '-0.02em' }}>My Parking Reservations</h1>
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
             View active QR passes, manage upcoming slots, and review booking history
           </p>
@@ -75,7 +87,7 @@ export const MyBookingsView = ({ setView }) => {
           <button onClick={() => setView('lots')} className="btn btn-primary btn-sm">
             Book New Slot
           </button>
-          <button onClick={fetchBookings} className="btn btn-secondary btn-sm">
+          <button onClick={fetchBookings} className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <RefreshCw size={14} /> Refresh
           </button>
         </div>
@@ -86,12 +98,14 @@ export const MyBookingsView = ({ setView }) => {
         <button
           onClick={() => setActiveTab('ACTIVE')}
           className={`btn btn-sm ${activeTab === 'ACTIVE' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ borderRadius: '20px', padding: '6px 16px' }}
         >
           Active & Upcoming ({bookings.filter(b => b.status === 'ACTIVE' || b.status === 'CONFIRMED').length})
         </button>
         <button
           onClick={() => setActiveTab('PAST')}
           className={`btn btn-sm ${activeTab === 'PAST' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ borderRadius: '20px', padding: '6px 16px' }}
         >
           Past & Cancelled ({bookings.filter(b => b.status === 'COMPLETED' || b.status === 'CANCELLED' || b.status === 'EXPIRED').length})
         </button>
@@ -121,7 +135,7 @@ export const MyBookingsView = ({ setView }) => {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '22px' }}>
           {filteredBookings.map(b => (
             <div key={b.id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div>
@@ -133,31 +147,42 @@ export const MyBookingsView = ({ setView }) => {
                   }`}>
                     {b.status}
                   </span>
-                  <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                    {b.booking_reference}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                      {b.booking_reference}
+                    </span>
+                    <button
+                      onClick={() => handleCopyRef(b.booking_reference)}
+                      className="btn-icon"
+                      title="Copy Reference"
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
+                    >
+                      <Copy size={12} />
+                    </button>
+                  </div>
                 </div>
 
-                <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '4px' }}>{b.lot_name}</h3>
+                <h3 style={{ fontSize: '19px', fontWeight: '800', marginBottom: '4px' }}>{b.lot_name}</h3>
                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
-                  <MapPin size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                  <MapPin size={13} style={{ display: 'inline', marginRight: '4px', verticalAlign: '-1px' }} />
                   {b.lot_address}, {b.lot_city}
                 </p>
 
                 <div style={{
                   background: 'var(--bg-secondary)',
-                  borderRadius: '8px',
-                  padding: '12px',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
                   marginBottom: '14px',
-                  fontSize: '13px'
+                  fontSize: '13px',
+                  border: '1px solid var(--border-color)'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <span style={{ color: 'var(--text-muted)' }}>Bay Number:</span>
-                    <strong style={{ color: 'var(--accent-primary)' }}>Slot {b.slot_number}</strong>
+                    <strong style={{ color: 'var(--accent-primary)', fontSize: '15px' }}>Slot {b.slot_number}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <span style={{ color: 'var(--text-muted)' }}>Vehicle Plate:</span>
-                    <strong style={{ fontFamily: 'var(--font-mono)' }}>{b.registration_number}</strong>
+                    <strong style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>{b.registration_number}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <span style={{ color: 'var(--text-muted)' }}>Timings (IST):</span>
@@ -170,23 +195,23 @@ export const MyBookingsView = ({ setView }) => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '8px', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', gap: '8px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
                 <button
                   onClick={() => setSelectedPass(b)}
                   className="btn btn-secondary btn-sm"
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
-                  <QrCode size={14} /> View QR Pass
+                  <QrCode size={14} /> View Pass QR
                 </button>
 
                 {b.status === 'CONFIRMED' && (
                   <button
                     disabled={cancellingId === b.id}
-                    onClick={() => handleCancel(b.id)}
+                    onClick={() => setCancellingBooking(b)}
                     className="btn btn-danger btn-sm"
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                   >
-                    <XCircle size={14} /> {cancellingId === b.id ? 'Cancelling...' : 'Cancel'}
+                    <XCircle size={14} /> Cancel Booking
                   </button>
                 )}
               </div>
@@ -200,32 +225,32 @@ export const MyBookingsView = ({ setView }) => {
         <div className="modal-overlay" onClick={() => setSelectedPass(null)}>
           <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px', textAlign: 'center' }}>
             <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '10px',
-              background: 'rgba(59, 130, 246, 0.2)',
+              width: '44px',
+              height: '44px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.15) 100%)',
               color: 'var(--accent-primary)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              marginBottom: '12px'
+              marginBottom: '14px'
             }}>
-              <QrCode size={22} />
+              <QrCode size={24} />
             </div>
 
-            <h2 style={{ fontSize: '20px', fontWeight: '800' }}>Smart Parking Pass</h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              Scan at automated barrier or show to gate operator
+            <h2 style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '-0.02em' }}>Smart Parking Pass</h2>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '18px' }}>
+              Scan at automated barrier or present to gate operator
             </p>
 
             {/* Generated QR Code Container */}
             <div style={{
               background: '#FFFFFF',
-              borderRadius: '12px',
-              padding: '20px',
+              borderRadius: '16px',
+              padding: '18px',
               display: 'inline-block',
               marginBottom: '20px',
-              boxShadow: 'var(--shadow-md)'
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)'
             }}>
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
@@ -237,20 +262,21 @@ export const MyBookingsView = ({ setView }) => {
                   })
                 )}`}
                 alt="Parking QR Pass"
-                style={{ width: '200px', height: '200px', display: 'block' }}
+                style={{ width: '190px', height: '190px', display: 'block' }}
               />
             </div>
 
             <div style={{
               background: 'var(--bg-secondary)',
-              borderRadius: '8px',
-              padding: '12px',
+              borderRadius: '10px',
+              padding: '14px',
               textAlign: 'left',
               fontSize: '13px',
-              marginBottom: '20px'
+              marginBottom: '20px',
+              border: '1px solid var(--border-color)'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Pass Ref:</span>
+                <span style={{ color: 'var(--text-muted)' }}>Reference:</span>
                 <strong style={{ fontFamily: 'var(--font-mono)' }}>{selectedPass.booking_reference}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -259,7 +285,7 @@ export const MyBookingsView = ({ setView }) => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Slot Bay:</span>
-                <strong style={{ color: 'var(--accent-primary)' }}>{selectedPass.slot_number}</strong>
+                <strong style={{ color: 'var(--accent-primary)' }}>Slot {selectedPass.slot_number}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Vehicle:</span>
@@ -273,6 +299,18 @@ export const MyBookingsView = ({ setView }) => {
           </div>
         </div>
       )}
+
+      {/* Sleek Confirm Cancellation Modal */}
+      <ConfirmModal
+        isOpen={!!cancellingBooking}
+        title="Cancel Parking Reservation"
+        message={`Are you sure you want to cancel booking ${cancellingBooking?.booking_reference} at ${cancellingBooking?.lot_name}? Free cancellation is permitted up to 30 minutes before your scheduled slot.`}
+        confirmLabel={cancellingId ? 'Cancelling...' : 'Confirm Cancellation'}
+        cancelLabel="Keep Reservation"
+        variant="danger"
+        onConfirm={handleConfirmCancel}
+        onCancel={() => setCancellingBooking(null)}
+      />
     </div>
   );
 };

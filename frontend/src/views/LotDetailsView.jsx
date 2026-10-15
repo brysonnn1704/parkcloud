@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { formatINR, formatIST } from '../utils/formatters';
 import { 
   ArrowLeft, 
   Clock, 
@@ -13,11 +15,13 @@ import {
   RefreshCw, 
   Check, 
   QrCode,
-  DollarSign 
+  ShieldCheck,
+  Bike
 } from 'lucide-react';
 
 export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
   const { isAuthenticated, user } = useAuth();
+  const toast = useToast();
 
   // Availability inputs (default: starting in 15 mins for 2 hours)
   const [startTime, setStartTime] = useState(() => {
@@ -107,6 +111,7 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
       });
 
       if (res.success) {
+        toast.success(`Booking Confirmed! Slot ${selectedSlot.slot_number} reserved at ${lot.name}.`);
         setShowBookingModal(false);
         if (onBookingComplete) {
           onBookingComplete(res.booking);
@@ -115,6 +120,7 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
       }
     } catch (err) {
       setBookingError(err.message || 'Failed to confirm booking.');
+      toast.error(err.message || 'Booking conflict or validation error');
     } finally {
       setBookingSubmitting(false);
     }
@@ -140,10 +146,12 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
   const gstPaise = Math.round(basePaise * 0.18);
   const totalPaise = basePaise + gstPaise;
 
+  const availableCount = slots.filter(s => s.is_available).length;
+
   return (
     <div>
       {/* Top Header */}
-      <button onClick={() => setView('lots')} className="btn btn-secondary btn-sm" style={{ marginBottom: '16px' }}>
+      <button onClick={() => setView('lots')} className="btn btn-secondary btn-sm" style={{ marginBottom: '16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
         <ArrowLeft size={15} /> Back to Locations
       </button>
 
@@ -153,10 +161,11 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <span className="badge badge-blue">{lot.city}</span>
               <span className="badge badge-green">Operational</span>
+              <span className="badge badge-purple">{availableCount} / {slots.length} Bays Free</span>
             </div>
-            <h1 style={{ fontSize: '26px', fontWeight: '800' }}>{lot.name}</h1>
+            <h1 style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '-0.02em' }}>{lot.name}</h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
-              <MapPin size={14} style={{ display: 'inline', marginRight: '4px' }} />
+              <MapPin size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: '-1px' }} />
               {lot.address} • PIN {lot.pincode}
             </p>
           </div>
@@ -164,22 +173,23 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
           <div style={{
             background: 'var(--bg-secondary)',
             border: '1px solid var(--border-color)',
-            borderRadius: '10px',
-            padding: '12px 18px',
+            borderRadius: '12px',
+            padding: '14px 20px',
             textAlign: 'right'
           }}>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Operating Hours (IST)</div>
-            <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--accent-primary)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: '700' }}>Operating Hours (IST)</div>
+            <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--accent-primary)', marginTop: '2px' }}>
               {lot.operating_start_hour}:00 to {lot.operating_end_hour}:00 IST
             </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Asia/Kolkata Guaranteed</div>
           </div>
         </div>
       </div>
 
       {/* Real-time Time Interval Filter Bar */}
       <div className="glass-card" style={{ marginBottom: '24px' }}>
-        <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Calendar size={17} color="var(--accent-primary)" /> Check Slot Availability for Time Window (IST)
+        <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Calendar size={18} color="var(--accent-primary)" /> Check Slot Availability for Time Window (IST)
         </h3>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', alignItems: 'flex-end' }}>
@@ -218,7 +228,7 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
             </select>
           </div>
 
-          <button onClick={checkAvailability} className="btn btn-secondary" style={{ height: '42px' }}>
+          <button onClick={checkAvailability} className="btn btn-secondary" style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
             <RefreshCw size={15} /> Check Availability
           </button>
         </div>
@@ -226,16 +236,16 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
 
       {/* Visual Slot Grid Map */}
       <div className="glass-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: '700' }}>Live Slot Layout Map</h2>
+            <h2 style={{ fontSize: '19px', fontWeight: '800' }}>Live Slot Layout Map</h2>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
               Click any green slot to reserve for your selected time window.
             </p>
           </div>
 
           {/* Legend */}
-          <div style={{ display: 'flex', gap: '14px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: 'var(--accent-success)' }}></div>
               <span>Available</span>
@@ -259,9 +269,9 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
         )}
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-            <RefreshCw size={24} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
-            <p style={{ marginTop: '8px' }}>Evaluating time intervals in PostgreSQL...</p>
+          <div style={{ textAlign: 'center', padding: '50px 0', color: 'var(--text-muted)' }}>
+            <RefreshCw size={28} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+            <p style={{ marginTop: '10px' }}>Evaluating PostgreSQL btree_gist temporal locks...</p>
           </div>
         ) : slots.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '30px' }}>No slots registered for this lot.</p>
@@ -269,24 +279,37 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
           <div className="slot-grid">
             {slots.map(slot => {
               const isAvail = slot.is_available;
+              const isEV = slot.category === 'EV_CHARGING';
+              const isBike = slot.category === 'TWO_WHEELER';
+
               return (
                 <div
                   key={slot.id}
                   onClick={() => handleSelectSlot(slot)}
                   className={`slot-box ${isAvail ? 'available' : 'occupied'}`}
-                  title={isAvail ? `Click to book slot ${slot.slot_number}` : `Slot ${slot.slot_number} is already booked`}
+                  title={isAvail ? `Click to book slot ${slot.slot_number}` : `Slot ${slot.slot_number} is already booked for this interval`}
+                  style={{
+                    position: 'relative',
+                    cursor: isAvail ? 'pointer' : 'not-allowed',
+                    border: isEV && isAvail ? '1px solid var(--accent-purple)' : undefined
+                  }}
                 >
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    {slot.category.replace('_', ' ')}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      {slot.category.replace('_', ' ')}
+                    </span>
+                    {isEV && <Zap size={13} color="var(--accent-purple)" />}
                   </div>
-                  <div style={{ fontSize: '18px', fontWeight: '800', color: isAvail ? 'var(--text-primary)' : 'var(--accent-danger)' }}>
+
+                  <div style={{ fontSize: '20px', fontWeight: '800', fontFamily: 'var(--font-mono)', color: isAvail ? 'var(--text-primary)' : 'var(--accent-danger)' }}>
                     {slot.slot_number}
                   </div>
+
                   <div style={{ marginTop: '8px' }}>
                     {isAvail ? (
-                      <span className="badge badge-green" style={{ fontSize: '10px' }}>Available</span>
+                      <span className="badge badge-green" style={{ fontSize: '10px', padding: '2px 8px' }}>Available</span>
                     ) : (
-                      <span className="badge badge-red" style={{ fontSize: '10px' }}>Booked</span>
+                      <span className="badge badge-red" style={{ fontSize: '10px', padding: '2px 8px' }}>Booked</span>
                     )}
                   </div>
                 </div>
@@ -300,7 +323,7 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
       {showBookingModal && selectedSlot && (
         <div className="modal-overlay" onClick={() => setShowBookingModal(false)}>
           <div className="modal-container" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: '20px', fontWeight: '800', marginBottom: '6px' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '6px', letterSpacing: '-0.02em' }}>
               Confirm Parking Reservation
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
@@ -329,7 +352,7 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
                 <div className="form-group">
                   <label className="form-label">Select Registered Vehicle</label>
                   {vehicles.length === 0 ? (
-                    <div style={{ padding: '12px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                    <div style={{ padding: '14px', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                       <p style={{ fontSize: '13px', color: 'var(--accent-warning)', marginBottom: '8px' }}>
                         No vehicles registered in your account yet.
                       </p>
@@ -358,16 +381,16 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
                   border: '1px solid var(--border-color)',
                   borderRadius: '10px',
                   padding: '14px',
-                  marginBottom: '20px',
+                  marginBottom: '18px',
                   fontSize: '13px'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ color: 'var(--text-muted)' }}>Start Time (IST):</span>
-                    <strong>{new Date(startTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</strong>
+                    <strong>{formatIST(startTime)}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ color: 'var(--text-muted)' }}>End Time (IST):</span>
-                    <strong>{new Date(endTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</strong>
+                    <strong>{formatIST(endTime)}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--text-muted)' }}>Duration:</span>
@@ -377,8 +400,8 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
 
                 {/* Fee Breakdown (in ₹) */}
                 <div style={{
-                  background: 'rgba(59, 130, 246, 0.08)',
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
                   borderRadius: '10px',
                   padding: '14px',
                   marginBottom: '20px',
@@ -386,15 +409,15 @@ export const LotDetailsView = ({ lot, setView, onBookingComplete }) => {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Base Parking Fee ({durationHours} hrs):</span>
-                    <span>₹{(basePaise / 100).toFixed(2)}</span>
+                    <span>{formatINR(basePaise)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Demo 18% GST:</span>
-                    <span>₹{(gstPaise / 100).toFixed(2)}</span>
+                    <span>{formatINR(gstPaise)}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '15px', fontWeight: '700' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid rgba(99, 102, 241, 0.2)', fontSize: '15px', fontWeight: '800' }}>
                     <span>Estimated Accrued Fee:</span>
-                    <span style={{ color: 'var(--accent-primary)' }}>₹{(totalPaise / 100).toFixed(2)}</span>
+                    <span style={{ color: 'var(--accent-primary)' }}>{formatINR(totalPaise)}</span>
                   </div>
                   <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
                     * Labeled as estimated/accrued demo fee. No actual money collected.

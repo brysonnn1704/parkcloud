@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "aws s3 cp s3://parkcloud-storage-ap-south-1-i4dkpdh5/deploy/bootstrap.sh /tmp/bootstrap.sh",
+    "bash /tmp/bootstrap.sh"
+  ]
+}

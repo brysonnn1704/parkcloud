@@ -13,7 +13,7 @@ import {
   Moon, 
   LogOut, 
   User,
-  Sparkles
+  Activity
 } from 'lucide-react';
 
 export const Navbar = ({ currentView, setView }) => {
@@ -25,46 +25,70 @@ export const Navbar = ({ currentView, setView }) => {
       background: 'var(--bg-secondary)',
       borderBottom: '1px solid var(--border-color)',
       padding: '0 24px',
-      height: '64px',
+      height: '66px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       position: 'sticky',
       top: 0,
-      zIndex: 100
+      zIndex: 100,
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)'
     }}>
-      {/* Brand */}
-      <div 
-        onClick={() => setView('landing')} 
-        style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
-      >
+      {/* Brand & AWS Cloud Status Pill */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div 
+          onClick={() => setView('landing')} 
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+          title="ParkCloud India Edition"
+        >
+          <div style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
+            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #3B82F6 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#FFFFFF',
+            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)'
+          }}>
+            <Compass size={22} />
+          </div>
+          <div>
+            <span style={{ fontSize: '18px', fontWeight: '800', letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
+              Park<span style={{ color: 'var(--accent-primary)' }}>Cloud</span>
+            </span>
+            <span style={{ 
+              fontSize: '10px', 
+              marginLeft: '6px', 
+              background: 'rgba(99, 102, 241, 0.15)', 
+              color: 'var(--accent-primary)',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontWeight: '700',
+              letterSpacing: '0.04em'
+            }}>
+              INDIA ED.
+            </span>
+          </div>
+        </div>
+
+        {/* AWS ap-south-1 Live Status Indicator */}
         <div style={{
-          width: '36px',
-          height: '36px',
-          borderRadius: '8px',
-          background: 'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          color: '#FFFFFF'
-        }}>
-          <Compass size={22} />
-        </div>
-        <div>
-          <span style={{ fontSize: '18px', fontWeight: '800', letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
-            Park<span style={{ color: 'var(--accent-primary)' }}>Cloud</span>
-          </span>
-          <span style={{ 
-            fontSize: '10px', 
-            marginLeft: '6px', 
-            background: 'rgba(59, 130, 246, 0.2)', 
-            color: 'var(--accent-primary)',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            fontWeight: '600'
-          }}>
-            INDIA ED.
-          </span>
+          gap: '6px',
+          background: 'rgba(16, 185, 129, 0.08)',
+          border: '1px solid rgba(16, 185, 129, 0.25)',
+          padding: '4px 10px',
+          borderRadius: '20px',
+          fontSize: '11px',
+          fontWeight: '600',
+          color: 'var(--accent-success)'
+        }} title="Connected to AWS ALB in Mumbai (ap-south-1)">
+          <span className="live-dot" />
+          <span>ap-south-1 Live</span>
         </div>
       </div>
 
@@ -72,7 +96,7 @@ export const Navbar = ({ currentView, setView }) => {
       <nav style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <button 
           onClick={() => setView('lots')} 
-          className={`btn btn-sm ${currentView === 'lots' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${currentView === 'lots' || currentView === 'lot-details' ? 'btn-primary' : 'btn-secondary'}`}
         >
           <MapPin size={15} /> Find Parking
         </button>
@@ -120,7 +144,11 @@ export const Navbar = ({ currentView, setView }) => {
           <button 
             onClick={() => setView('admin')} 
             className={`btn btn-sm ${currentView === 'admin' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ borderColor: 'var(--accent-purple)', color: currentView === 'admin' ? '#fff' : 'var(--accent-purple)' }}
+            style={{ 
+              borderColor: 'var(--accent-purple)', 
+              color: currentView === 'admin' ? '#fff' : 'var(--accent-purple)',
+              background: currentView === 'admin' ? 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)' : 'transparent'
+            }}
           >
             <ShieldCheck size={15} /> Admin Console
           </button>
@@ -143,18 +171,36 @@ export const Navbar = ({ currentView, setView }) => {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              fontSize: '13px',
-              color: 'var(--text-secondary)'
+              gap: '8px',
+              padding: '4px 10px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '20px',
+              fontSize: '12px',
+              color: 'var(--text-primary)'
             }}>
-              <User size={16} />
-              <span>{user?.fullName?.split(' ')[0]}</span>
-              {isAdmin && <span className="badge badge-purple">Admin</span>}
+              <div style={{
+                width: '22px',
+                height: '22px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '11px',
+                fontWeight: '700'
+              }}>
+                {user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <span style={{ fontWeight: '600' }}>{user?.fullName?.split(' ')[0]}</span>
+              {isAdmin && <span className="badge badge-purple" style={{ fontSize: '10px', padding: '1px 6px' }}>Admin</span>}
             </div>
             <button 
               onClick={logout} 
               className="btn btn-secondary btn-sm"
               title="Logout"
+              style={{ width: '36px', height: '36px', padding: 0 }}
             >
               <LogOut size={15} />
             </button>

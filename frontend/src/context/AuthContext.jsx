@@ -32,8 +32,9 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('parkcloud_token', res.token);
       }
       setUser(res.user);
-      return res.user;
+      return { success: true, user: res.user, ...res.user };
     }
+    return res;
   };
 
   const register = async (payload) => {
@@ -43,8 +44,9 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('parkcloud_token', res.token);
       }
       setUser(res.user);
-      return res.user;
+      return { success: true, user: res.user, ...res.user };
     }
+    return res;
   };
 
   const logout = async () => {

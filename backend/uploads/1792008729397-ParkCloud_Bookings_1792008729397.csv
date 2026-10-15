@@ -1,0 +1,5 @@
+Booking Reference,Lot Name,Slot Number,Vehicle Plate,Vehicle Type,Start Time (IST),End Time (IST),Status,Fee (INR)
+"PC-BKG-2603","Phoenix Marketcity Mall Smart Lot","P1-04","22BH1234AA","EV","16/10/2026, 01:42 am","16/10/2026, 03:42 am","CONFIRMED",118.00
+"PC-MV8JQ8TV-FX1K","Commercial Street Smart Municipal Lot","CS-01","MH12CD5678","FOUR_WHEELER","15/10/2026, 11:42 am","15/10/2026, 01:42 pm","COMPLETED",118.00
+"PC-BKG-2602","Phoenix Marketcity Mall Smart Lot","P1-02","MH02DE4567","FOUR_WHEELER","15/10/2026, 01:12 am","15/10/2026, 03:12 am","ACTIVE",141.60
+"PC-BKG-2601","Phoenix Marketcity Mall Smart Lot","P1-01","MH02DE4567","FOUR_WHEELER","13/10/2026, 01:42 am","13/10/2026, 03:42 am","COMPLETED",141.60

@@ -2,7 +2,8 @@
   "name": "parkcloud-desktop",
   "version": "1.0.0",
   "description": "ParkCloud Smart Parking Management Desktop Application",
-  "main": "electron/main.js",
+  "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -36,15 +37,8 @@
       "package.json"
     ],
     "win": {
-      "target": "nsis",
-      "artifactName": "ParkCloud-Setup-${version}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "uninstallDisplayName": "ParkCloud Smart Parking"
+      "target": "dir",
+      "signAndEditExecutable": false
     }
   }
 }

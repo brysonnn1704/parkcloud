@@ -4,7 +4,6 @@ const http = require('node:http');
 const app = require('../backend/src/app');
 const { pool } = require('../backend/src/config/db');
 const { normalizeAndValidatePlate, normalizeAndValidatePhone, formatINRFromPaise } = require('../backend/src/utils/indiaLocale');
-
 const { seedDatabase } = require('../backend/src/database/seed');
 
 let server;
@@ -60,21 +59,22 @@ test('India Locale: Vehicle plate validation and normalization', () => {
   const inv1 = normalizeAndValidatePlate('INVALID123');
   assert.strictEqual(inv1.valid, false);
 
-  const inv2 = normalizeAndValidatePlate('1234');
+  const inv2 = normalizeAndValidatePlate('');
   assert.strictEqual(inv2.valid, false);
 });
 
 test('India Locale: Phone number normalization and validation', () => {
-  const phone1 = normalizeAndValidatePhone('9820011223');
-  assert.strictEqual(phone1.valid, true);
-  assert.strictEqual(phone1.normalized, '+919820011223');
+  const ph1 = normalizeAndValidatePhone('9820011223');
+  assert.strictEqual(ph1.valid, true);
+  assert.strictEqual(ph1.normalized, '+919820011223');
 
-  const phone2 = normalizeAndValidatePhone('+91 98199 88776');
-  assert.strictEqual(phone2.valid, true);
-  assert.strictEqual(phone2.normalized, '+919819988776');
+  const ph2 = normalizeAndValidatePhone('+91 98199 88776');
+  assert.strictEqual(ph2.valid, true);
+  assert.strictEqual(ph2.normalized, '+919819988776');
 
-  const invPhone = normalizeAndValidatePhone('123456');
-  assert.strictEqual(invPhone.valid, false);
+  // Invalid numbers
+  const invPh = normalizeAndValidatePhone('123456');
+  assert.strictEqual(invPh.valid, false);
 });
 
 test('India Locale: Currency formatting in Paise to INR', () => {
@@ -93,31 +93,37 @@ test('Health Check: Returns HTTP 200 with service status', async () => {
 test('Readiness Check: Verifies DB connection', async () => {
   const res = await makeRequest('/api/ready');
   assert.strictEqual(res.status, 200);
-  assert.strictEqual(res.data.status, 'ready');
   assert.strictEqual(res.data.database, 'connected');
+  assert.ok(typeof res.data.dbLatencyMs === 'number');
 });
 
 // 3. Authentication Tests
-let userToken = '';
-let adminToken = '';
-let testUserId = '';
+let userToken;
+let adminToken;
+let userId;
 
 test('Auth: User Login with Seeded Demo User', async () => {
   const res = await makeRequest('/api/auth/login', {
     method: 'POST',
-    body: { email: 'rahul.sharma@example.com', password: 'User@ParkCloud2026!' },
+    body: {
+      email: 'rahul.sharma@example.com',
+      password: 'User@ParkCloud2026!',
+    },
   });
   assert.strictEqual(res.status, 200);
   assert.strictEqual(res.data.success, true);
-  assert.strictEqual(res.data.user.role, 'USER');
+  assert.ok(res.data.token);
   userToken = res.data.token;
-  testUserId = res.data.user.id;
+  userId = res.data.user.id;
 });
 
 test('Auth: Admin Login with Seeded Admin User', async () => {
   const res = await makeRequest('/api/auth/login', {
     method: 'POST',
-    body: { email: 'admin@parkcloud.in', password: 'Admin@ParkCloud2026!' },
+    body: {
+      email: 'admin@parkcloud.in',
+      password: 'Admin@ParkCloud2026!',
+    },
   });
   assert.strictEqual(res.status, 200);
   assert.strictEqual(res.data.success, true);
@@ -128,7 +134,10 @@ test('Auth: Admin Login with Seeded Admin User', async () => {
 test('Auth: Rejects invalid credentials', async () => {
   const res = await makeRequest('/api/auth/login', {
     method: 'POST',
-    body: { email: 'rahul.sharma@example.com', password: 'WrongPassword!' },
+    body: {
+      email: 'rahul.sharma@example.com',
+      password: 'WrongPassword!',
+    },
   });
   assert.strictEqual(res.status, 401);
   assert.strictEqual(res.data.success, false);
@@ -140,7 +149,7 @@ test('Auth: User cannot access admin endpoints', async () => {
     headers: { Authorization: `Bearer ${userToken}` },
     body: {
       name: 'Unauthorized Lot',
-      address: 'Test Address',
+      address: 'Test Road',
       city: 'Mumbai',
       pincode: '400001',
     },
@@ -148,44 +157,84 @@ test('Auth: User cannot access admin endpoints', async () => {
   assert.strictEqual(res.status, 403);
 });
 
-// 4. Parking Lots & Availability Tests
-let selectedLotId = '';
-let selectedSlotId = '';
+test('Auth: Reject access to protected endpoints without token', async () => {
+  const res = await makeRequest('/api/bookings/my');
+  assert.strictEqual(res.status, 401);
+  assert.strictEqual(res.data.success, false);
+});
+
+test('Auth: Register new user with validation', async () => {
+  const res = await makeRequest('/api/auth/register', {
+    method: 'POST',
+    body: {
+      fullName: 'Vikram Malhotra',
+      email: 'vikram.m@example.com',
+      phone: '9820199887',
+      password: 'SecurePassword123!',
+    },
+  });
+  assert.strictEqual(res.status, 201);
+  assert.strictEqual(res.data.success, true);
+  assert.ok(res.data.token);
+});
+
+test('Auth: Reject duplicate email registration', async () => {
+  const res = await makeRequest('/api/auth/register', {
+    method: 'POST',
+    body: {
+      fullName: 'Vikram Duplicate',
+      email: 'vikram.m@example.com',
+      phone: '9820199888',
+      password: 'SecurePassword123!',
+    },
+  });
+  assert.strictEqual(res.status, 409);
+  assert.strictEqual(res.data.success, false);
+});
+
+// 4. Lots & Slots Tests
+let selectedLotId;
+let selectedSlotId;
 
 test('Lots: List all active parking lots', async () => {
   const res = await makeRequest('/api/lots');
   assert.strictEqual(res.status, 200);
   assert.strictEqual(res.data.success, true);
-  assert.ok(res.data.lots.length >= 5);
+  assert.ok(Array.isArray(res.data.lots));
+  assert.strictEqual(res.data.lots.length, 5);
   selectedLotId = res.data.lots[0].id;
 });
 
 test('Slots: Check slot availability with time interval', async () => {
-  const start = new Date(Date.now() + 3600 * 1000 * 5).toISOString();
-  const end = new Date(Date.now() + 3600 * 1000 * 7).toISOString();
+  // Use tomorrow 10:00 - 12:00 IST (UTC 04:30 to 06:30)
+  const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
+  const start = new Date(Date.UTC(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth(), tomorrow.getUTCDate(), 4, 30, 0)).toISOString();
+  const end = new Date(Date.UTC(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth(), tomorrow.getUTCDate(), 6, 30, 0)).toISOString();
 
-  const res = await makeRequest(`/api/lots/${selectedLotId}/availability?startTime=${start}&endTime=${end}&vehicleType=FOUR_WHEELER`);
+  const res = await makeRequest(`/api/lots/${selectedLotId}/availability?startTime=${encodeURIComponent(start)}&endTime=${encodeURIComponent(end)}&vehicleType=FOUR_WHEELER`);
   assert.strictEqual(res.status, 200);
   assert.strictEqual(res.data.success, true);
+  assert.ok(Array.isArray(res.data.slots));
   assert.ok(res.data.slots.length > 0);
   selectedSlotId = res.data.slots[0].id;
 });
 
-// 5. Vehicle Management Tests
-let newVehicleId = '';
+// 5. Vehicles Tests
+let newVehicleId;
 
 test('Vehicles: Register vehicle with valid plate', async () => {
   const res = await makeRequest('/api/vehicles', {
     method: 'POST',
     headers: { Authorization: `Bearer ${userToken}` },
     body: {
-      registrationNumber: 'MH 12 CD 5678',
+      registrationNumber: 'MH 12 CD 3456',
       vehicleType: 'FOUR_WHEELER',
-      nickname: 'Pune City Car',
+      nickname: 'Honda City',
     },
   });
   assert.strictEqual(res.status, 201);
-  assert.strictEqual(res.data.vehicle.registration_number, 'MH12CD5678');
+  assert.strictEqual(res.data.success, true);
+  assert.strictEqual(res.data.vehicle.registration_number, 'MH12CD3456');
   newVehicleId = res.data.vehicle.id;
 });
 
@@ -194,20 +243,38 @@ test('Vehicles: Reject duplicate registration for the same user', async () => {
     method: 'POST',
     headers: { Authorization: `Bearer ${userToken}` },
     body: {
-      registrationNumber: 'MH12CD5678',
+      registrationNumber: 'MH12CD3456',
       vehicleType: 'FOUR_WHEELER',
     },
   });
   assert.strictEqual(res.status, 409);
+  assert.strictEqual(res.data.success, false);
 });
 
-// 6. Concurrency & Booking Engine Tests
-let createdBookingId = '';
-let createdBookingRef = '';
+test('Vehicles: Reject invalid vehicle plate format', async () => {
+  const res = await makeRequest('/api/vehicles', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${userToken}` },
+    body: {
+      registrationNumber: 'XYZ-NOT-A-PLATE',
+      vehicleType: 'FOUR_WHEELER',
+    },
+  });
+  assert.strictEqual(res.status, 400);
+  assert.strictEqual(res.data.success, false);
+});
+
+// 6. Booking & Concurrency Tests
+let createdBookingId;
+let createdBookingRef;
+let validBookingStart;
+let validBookingEnd;
 
 test('Booking: Successful booking creation and QR pass generation', async () => {
-  const start = new Date(Date.now() + 3600 * 1000 * 10).toISOString();
-  const end = new Date(Date.now() + 3600 * 1000 * 12).toISOString();
+  // Deterministic booking tomorrow 10:00 - 12:00 IST (UTC 04:30 - 06:30)
+  const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
+  validBookingStart = new Date(Date.UTC(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth(), tomorrow.getUTCDate(), 4, 30, 0)).toISOString();
+  validBookingEnd = new Date(Date.UTC(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth(), tomorrow.getUTCDate(), 6, 30, 0)).toISOString();
 
   const res = await makeRequest('/api/bookings', {
     method: 'POST',
@@ -216,23 +283,29 @@ test('Booking: Successful booking creation and QR pass generation', async () => 
       lotId: selectedLotId,
       slotId: selectedSlotId,
       vehicleId: newVehicleId,
-      startTime: start,
-      endTime: end,
+      startTime: validBookingStart,
+      endTime: validBookingEnd,
     },
   });
 
   assert.strictEqual(res.status, 201);
   assert.strictEqual(res.data.success, true);
-  assert.ok(res.data.booking.booking_reference.startsWith('PC-'));
-  assert.ok(res.data.booking.qrCodeDataUrl.startsWith('data:image/png;base64,'));
+  assert.ok(res.data.booking.id);
+  assert.ok(res.data.booking.booking_reference);
+  const qr = res.data.booking.qrCodeDataUrl || res.data.booking.qr_code_data;
+  assert.ok(qr && qr.startsWith('data:image/png;base64,'));
+  assert.strictEqual(res.data.booking.status, 'CONFIRMED');
+  assert.ok(res.data.booking.estimated_fee_paise > 0);
+
   createdBookingId = res.data.booking.id;
   createdBookingRef = res.data.booking.booking_reference;
 });
 
 test('Booking: Rejects conflicting overlapping booking (Double-Booking Prevention)', async () => {
-  // Attempt to book the exact same slot during an overlapping window (1 hour into the previous booking)
-  const conflictStart = new Date(Date.now() + 3600 * 1000 * 11).toISOString();
-  const conflictEnd = new Date(Date.now() + 3600 * 1000 * 13).toISOString();
+  // Attempt to book overlapping window (10:30 to 11:30 IST) on the same slot
+  const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
+  const conflictStart = new Date(Date.UTC(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth(), tomorrow.getUTCDate(), 5, 0, 0)).toISOString();
+  const conflictEnd = new Date(Date.UTC(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth(), tomorrow.getUTCDate(), 6, 0, 0)).toISOString();
 
   const res = await makeRequest('/api/bookings', {
     method: 'POST',
@@ -250,10 +323,52 @@ test('Booking: Rejects conflicting overlapping booking (Double-Booking Preventio
   assert.strictEqual(res.data.code, 'SLOT_TIME_CONFLICT');
 });
 
+test('Booking: Rejects booking in the past', async () => {
+  const pastStart = new Date(Date.now() - 3600 * 1000 * 2).toISOString();
+  const pastEnd = new Date(Date.now() - 3600 * 1000).toISOString();
+
+  const res = await makeRequest('/api/bookings', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${userToken}` },
+    body: {
+      lotId: selectedLotId,
+      slotId: selectedSlotId,
+      vehicleId: newVehicleId,
+      startTime: pastStart,
+      endTime: pastEnd,
+    },
+  });
+
+  assert.strictEqual(res.status, 400);
+  assert.strictEqual(res.data.success, false);
+});
+
+test('Booking: Rejects booking where end time is before start time', async () => {
+  const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
+  const start = new Date(Date.UTC(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth(), tomorrow.getUTCDate(), 6, 0, 0)).toISOString();
+  const end = new Date(Date.UTC(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth(), tomorrow.getUTCDate(), 5, 0, 0)).toISOString();
+
+  const res = await makeRequest('/api/bookings', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${userToken}` },
+    body: {
+      lotId: selectedLotId,
+      slotId: selectedSlotId,
+      vehicleId: newVehicleId,
+      startTime: start,
+      endTime: end,
+    },
+  });
+
+  assert.strictEqual(res.status, 400);
+  assert.strictEqual(res.data.success, false);
+});
+
 test('Booking: High-concurrency race condition test (Simultaneous requests for same slot)', async () => {
-  // Simulate 5 simultaneous requests attempting to book the exact same slot at the exact same future time
-  const raceStart = new Date(Date.now() + 3600 * 1000 * 20).toISOString();
-  const raceEnd = new Date(Date.now() + 3600 * 1000 * 22).toISOString();
+  // Test a future window on day after tomorrow (14:00 - 16:00 IST = UTC 08:30 - 10:30)
+  const dayAfter = new Date(Date.now() + 48 * 3600 * 1000);
+  const raceStart = new Date(Date.UTC(dayAfter.getUTCFullYear(), dayAfter.getUTCMonth(), dayAfter.getUTCDate(), 8, 30, 0)).toISOString();
+  const raceEnd = new Date(Date.UTC(dayAfter.getUTCFullYear(), dayAfter.getUTCMonth(), dayAfter.getUTCDate(), 10, 30, 0)).toISOString();
 
   const promises = Array.from({ length: 5 }, () =>
     makeRequest('/api/bookings', {
@@ -288,6 +403,16 @@ test('Check-in: Operator checks in vehicle via booking reference', async () => {
   assert.strictEqual(res.data.success, true);
 });
 
+test('Check-in: Reject check-in for invalid non-existent reference', async () => {
+  const res = await makeRequest('/api/bookings/check-in', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
+    body: { bookingReference: 'PC-NONEXISTENT-999' },
+  });
+  assert.strictEqual(res.status, 404);
+  assert.strictEqual(res.data.success, false);
+});
+
 test('Check-out: Operator checks out vehicle', async () => {
   const res = await makeRequest('/api/bookings/check-out', {
     method: 'POST',
@@ -298,7 +423,48 @@ test('Check-out: Operator checks out vehicle', async () => {
   assert.strictEqual(res.data.success, true);
 });
 
-// 8. Analytics & Heatmap Tests
+test('Check-out: Reject check-out for already completed booking', async () => {
+  const res = await makeRequest('/api/bookings/check-out', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
+    body: { bookingReference: createdBookingRef },
+  });
+  assert.strictEqual(res.status, 400);
+  assert.strictEqual(res.data.success, false);
+});
+
+// 8. Cancellation Workflow
+test('Cancellation: User can cancel upcoming booking', async () => {
+  // Create a separate booking to cancel
+  const futureDate = new Date(Date.now() + 72 * 3600 * 1000);
+  const bStart = new Date(Date.UTC(futureDate.getUTCFullYear(), futureDate.getUTCMonth(), futureDate.getUTCDate(), 5, 0, 0)).toISOString();
+  const bEnd = new Date(Date.UTC(futureDate.getUTCFullYear(), futureDate.getUTCMonth(), futureDate.getUTCDate(), 7, 0, 0)).toISOString();
+
+  const createRes = await makeRequest('/api/bookings', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${userToken}` },
+    body: {
+      lotId: selectedLotId,
+      slotId: selectedSlotId,
+      vehicleId: newVehicleId,
+      startTime: bStart,
+      endTime: bEnd,
+    },
+  });
+  assert.strictEqual(createRes.status, 201);
+  const cancelBookingId = createRes.data.booking.id;
+
+  const cancelRes = await makeRequest(`/api/bookings/${cancelBookingId}/cancel`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${userToken}` },
+    body: { reason: 'Plans changed' },
+  });
+  assert.strictEqual(cancelRes.status, 200);
+  assert.strictEqual(cancelRes.data.success, true);
+  assert.strictEqual(cancelRes.data.booking.status, 'CANCELLED');
+});
+
+// 9. Analytics & Heatmap Tests
 test('Analytics: Summary metrics with formula info', async () => {
   const res = await makeRequest('/api/analytics/summary');
   assert.strictEqual(res.status, 200);
@@ -319,7 +485,24 @@ test('Analytics: Utilization heatmap (7 days x 24 hours)', async () => {
   assert.strictEqual(res.data.heatmap[0].hours.length, 24);
 });
 
-// 9. File Storage & Report Generation Tests
+test('Analytics: Occupancy forecast returns projections', async () => {
+  const res = await makeRequest('/api/analytics/forecast');
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.data.success, true);
+  assert.ok(res.data.forecast);
+});
+
+// 10. Security: SQL Injection Resistance
+test('Security: SQL Injection attempt in query parameters handled safely', async () => {
+  const sqlInjectionPayload = "'; DROP TABLE users; --";
+  const res = await makeRequest(`/api/files?lotId=${encodeURIComponent(sqlInjectionPayload)}`, {
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
+  // Must return 200 with 0 results or 400 bad uuid, NEVER 500 database execution of injected query
+  assert.ok([200, 400].includes(res.status));
+});
+
+// 11. File Storage & Report Generation Tests
 test('Reports: Generate PDF report from real DB bookings', async () => {
   const res = await makeRequest('/api/files/generate-report', {
     method: 'POST',

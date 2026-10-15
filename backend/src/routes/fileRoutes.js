@@ -42,7 +42,11 @@ router.get('/', authenticateToken, async (req, res, next) => {
     `;
     const params = [];
 
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (lotId) {
+      if (!uuidRegex.test(lotId)) {
+        return res.status(400).json({ success: false, error: 'Invalid lotId parameter format. Expected UUID.' });
+      }
       params.push(lotId);
       query += ` AND f.lot_id = $${params.length}`;
     }

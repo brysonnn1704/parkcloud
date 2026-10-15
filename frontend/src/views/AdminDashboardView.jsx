@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
+import { useToast } from '../context/ToastContext';
 import { 
   ShieldCheck, 
   Plus, 
@@ -10,15 +11,19 @@ import {
   AlertCircle, 
   RefreshCw,
   Search,
-  Filter 
+  Filter,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 
 export const AdminDashboardView = () => {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState('OPERATOR');
   const [scanRef, setScanRef] = useState('');
   const [scanResult, setScanResult] = useState(null);
   const [scanError, setScanError] = useState('');
   const [submittingScan, setSubmittingScan] = useState(false);
+  const [gateStatus, setGateStatus] = useState('CLOSED'); // 'OPEN' or 'CLOSED'
 
   // Lot Management State
   const [lots, setLots] = useState([]);
@@ -75,16 +80,23 @@ export const AdminDashboardView = () => {
 
   // Handle Gate Check-in
   const handleCheckIn = async () => {
-    if (!scanRef.trim()) return;
+    if (!scanRef.trim()) {
+      toast.warning('Please enter a booking reference code.');
+      return;
+    }
     setSubmittingScan(true);
     setScanResult(null);
     setScanError('');
     try {
       const res = await api.checkIn(scanRef.trim());
       setScanResult(res.message);
+      setGateStatus('OPEN');
+      toast.success(`Check-In Verified: ${res.message} (Gate Barrier Opened)`);
       fetchAllBookings();
+      setTimeout(() => setGateStatus('CLOSED'), 4000);
     } catch (err) {
       setScanError(err.message || 'Check-in failed');
+      toast.error(err.message || 'Check-in failed');
     } finally {
       setSubmittingScan(false);
     }
@@ -92,16 +104,23 @@ export const AdminDashboardView = () => {
 
   // Handle Gate Check-out
   const handleCheckOut = async () => {
-    if (!scanRef.trim()) return;
+    if (!scanRef.trim()) {
+      toast.warning('Please enter a booking reference code.');
+      return;
+    }
     setSubmittingScan(true);
     setScanResult(null);
     setScanError('');
     try {
       const res = await api.checkOut(scanRef.trim());
       setScanResult(res.message);
+      setGateStatus('OPEN');
+      toast.success(`Check-Out Completed: ${res.message} (Gate Barrier Opened)`);
       fetchAllBookings();
+      setTimeout(() => setGateStatus('CLOSED'), 4000);
     } catch (err) {
       setScanError(err.message || 'Check-out failed');
+      toast.error(err.message || 'Check-out failed');
     } finally {
       setSubmittingScan(false);
     }
@@ -114,9 +133,9 @@ export const AdminDashboardView = () => {
       await api.createLot(newLot);
       setShowAddLot(false);
       fetchLots();
-      alert('Parking lot created successfully!');
+      toast.success(`Parking lot "${newLot.name}" created successfully in RDS.`);
     } catch (err) {
-      alert(err.message || 'Failed to create lot');
+      toast.error(err.message || 'Failed to create lot');
     }
   };
 
@@ -131,9 +150,9 @@ export const AdminDashboardView = () => {
       });
       setNewSlotNumber('');
       fetchLots();
-      alert('Slot added successfully to lot!');
+      toast.success(`Slot ${newSlotNumber} registered successfully in lot.`);
     } catch (err) {
-      alert(err.message || 'Failed to create slot');
+      toast.error(err.message || 'Failed to create slot');
     }
   };
 
@@ -141,14 +160,14 @@ export const AdminDashboardView = () => {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
         <div>
-          <h1 style={{ fontSize: '26px', fontWeight: '800' }}>Admin & Gate Operations Console</h1>
+          <h1 style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '-0.02em' }}>Admin & Gate Operations Console</h1>
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Boom-barrier verification, lot rate controls, and system-wide booking audits
+            Boom-barrier verification terminal, lot configuration, and system-wide booking audits
           </p>
         </div>
 
-        <span className="badge badge-purple" style={{ padding: '6px 12px', fontSize: '12px' }}>
-          <ShieldCheck size={14} style={{ display: 'inline', marginRight: '4px' }} /> Role: ADMINISTRATOR
+        <span className="badge badge-purple" style={{ padding: '6px 14px', fontSize: '12px' }}>
+          <ShieldCheck size={14} style={{ display: 'inline', marginRight: '5px', verticalAlign: '-1px' }} /> Role: ADMINISTRATOR
         </span>
       </div>
 
@@ -157,18 +176,21 @@ export const AdminDashboardView = () => {
         <button
           onClick={() => setActiveTab('OPERATOR')}
           className={`btn btn-sm ${activeTab === 'OPERATOR' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ borderRadius: '20px', padding: '6px 16px' }}
         >
           <QrCode size={14} /> Gate Boom Barrier Scanner
         </button>
         <button
           onClick={() => setActiveTab('LOTS')}
           className={`btn btn-sm ${activeTab === 'LOTS' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ borderRadius: '20px', padding: '6px 16px' }}
         >
           <MapPin size={14} /> Lot & Slot Configuration
         </button>
         <button
           onClick={() => setActiveTab('AUDIT')}
           className={`btn btn-sm ${activeTab === 'AUDIT' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ borderRadius: '20px', padding: '6px 16px' }}
         >
           <Search size={14} /> All Bookings Audit ({allBookings.length})
         </button>
@@ -176,14 +198,41 @@ export const AdminDashboardView = () => {
 
       {/* Tab 1: Operator QR / Reference Entry */}
       {activeTab === 'OPERATOR' && (
-        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <div className="glass-card">
-            <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '8px' }}>
-              Gate Operator Pass Verification
-            </h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-              Enter or scan the customer's Booking Reference (e.g. <code style={{ color: 'var(--accent-primary)' }}>PC-BKG-2602</code>)
-            </p>
+        <div style={{ maxWidth: '680px', margin: '0 auto' }}>
+          <div className="glass-card" style={{ padding: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: '800' }}>
+                  Gate Operator Boom-Barrier Terminal
+                </h2>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  Scan pass QR code or input customer Booking Reference ID
+                </p>
+              </div>
+
+              {/* Animated Barrier Status Graphic */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: '20px',
+                background: gateStatus === 'OPEN' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                border: `1px solid ${gateStatus === 'OPEN' ? 'var(--accent-success)' : 'var(--accent-danger)'}`,
+                fontSize: '12px',
+                fontWeight: '700',
+                color: gateStatus === 'OPEN' ? 'var(--accent-success)' : 'var(--accent-danger)'
+              }}>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: gateStatus === 'OPEN' ? 'var(--accent-success)' : 'var(--accent-danger)',
+                  boxShadow: `0 0 8px ${gateStatus === 'OPEN' ? 'var(--accent-success)' : 'var(--accent-danger)'}`
+                }} />
+                <span>BARRIER {gateStatus}</span>
+              </div>
+            </div>
 
             {scanResult && (
               <div className="alert alert-success">
@@ -199,6 +248,34 @@ export const AdminDashboardView = () => {
               </div>
             )}
 
+            {/* Quick Fill Recent Bookings */}
+            {allBookings.length > 0 && (
+              <div style={{
+                background: 'var(--bg-secondary)',
+                borderRadius: '10px',
+                padding: '12px 14px',
+                marginBottom: '18px',
+                border: '1px solid var(--border-color)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: '700', marginBottom: '8px' }}>
+                  <Sparkles size={12} color="var(--accent-warning)" /> Recent Active Passes (Click to test):
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {allBookings.slice(0, 3).map(b => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setScanRef(b.booking_reference)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '11px', fontFamily: 'var(--font-mono)' }}
+                    >
+                      {b.booking_reference} ({b.registration_number})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="form-group">
               <label className="form-label">Booking Reference ID</label>
               <input
@@ -207,26 +284,26 @@ export const AdminDashboardView = () => {
                 placeholder="PC-BKG-2602 or scan code"
                 value={scanRef}
                 onChange={(e) => setScanRef(e.target.value.toUpperCase())}
-                style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', letterSpacing: '0.05em' }}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: '17px', letterSpacing: '0.06em', fontWeight: '700' }}
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '18px' }}>
               <button
                 type="button"
                 disabled={submittingScan}
                 onClick={handleCheckIn}
                 className="btn btn-primary"
-                style={{ flex: 1, padding: '12px' }}
+                style={{ flex: 1, padding: '13px', fontWeight: '700' }}
               >
-                {submittingScan ? 'Processing...' : 'Verify & Check In (Gate Open)'}
+                {submittingScan ? 'Verifying...' : 'Verify & Check In (Open Gate)'}
               </button>
               <button
                 type="button"
                 disabled={submittingScan}
                 onClick={handleCheckOut}
                 className="btn btn-secondary"
-                style={{ flex: 1, padding: '12px' }}
+                style={{ flex: 1, padding: '13px', fontWeight: '700' }}
               >
                 {submittingScan ? 'Processing...' : 'Process Check Out'}
               </button>
@@ -240,7 +317,7 @@ export const AdminDashboardView = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
           {/* Create Lot */}
           <div className="glass-card">
-            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '14px' }}>Add New Parking Lot</h3>
+            <h3 style={{ fontSize: '17px', fontWeight: '800', marginBottom: '14px' }}>Add New Parking Lot</h3>
             <form onSubmit={handleCreateLot}>
               <div className="form-group">
                 <label className="form-label">Lot Name</label>
@@ -290,14 +367,14 @@ export const AdminDashboardView = () => {
               </div>
 
               <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '8px' }}>
-                Save Parking Lot
+                Save Parking Lot to RDS
               </button>
             </form>
           </div>
 
           {/* Add Slot */}
           <div className="glass-card">
-            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '14px' }}>Add Parking Slot to Lot</h3>
+            <h3 style={{ fontSize: '17px', fontWeight: '800', marginBottom: '14px' }}>Add Parking Slot to Lot</h3>
             <form onSubmit={handleCreateSlot}>
               <div className="form-group">
                 <label className="form-label">Select Lot</label>
@@ -321,6 +398,7 @@ export const AdminDashboardView = () => {
                   placeholder="SLOT-01"
                   value={newSlotNumber}
                   onChange={(e) => setNewSlotNumber(e.target.value.toUpperCase())}
+                  style={{ fontFamily: 'var(--font-mono)' }}
                 />
               </div>
 
@@ -350,9 +428,12 @@ export const AdminDashboardView = () => {
       {/* Tab 3: All Bookings Audit */}
       {activeTab === 'AUDIT' && (
         <div className="glass-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: '700' }}>System-Wide Booking Ledger</h3>
-            <button onClick={fetchAllBookings} className="btn btn-secondary btn-sm">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+            <div>
+              <h3 style={{ fontSize: '18px', fontWeight: '800' }}>System-Wide Booking Ledger</h3>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>Real-time database records in PostgreSQL RDS</p>
+            </div>
+            <button onClick={fetchAllBookings} className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <RefreshCw size={14} /> Refresh
             </button>
           </div>
@@ -373,14 +454,14 @@ export const AdminDashboardView = () => {
               <tbody>
                 {allBookings.map(b => (
                   <tr key={b.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontWeight: '600' }}>
+                    <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)', fontWeight: '700' }}>
                       {b.booking_reference}
                     </td>
                     <td style={{ padding: '10px 8px' }}>{b.user_name || b.user_email}</td>
                     <td style={{ padding: '10px 8px' }}>{b.lot_name} (Bay {b.slot_number})</td>
                     <td style={{ padding: '10px 8px', fontFamily: 'var(--font-mono)' }}>{b.registration_number}</td>
                     <td style={{ padding: '10px 8px' }}>{b.startTimeIST}</td>
-                    <td style={{ padding: '10px 8px', fontWeight: '600', color: 'var(--accent-success)' }}>{b.feeFormatted}</td>
+                    <td style={{ padding: '10px 8px', fontWeight: '700', color: 'var(--accent-success)' }}>{b.feeFormatted}</td>
                     <td style={{ padding: '10px 8px' }}>
                       <span className={`badge ${
                         b.status === 'ACTIVE' ? 'badge-green' :
