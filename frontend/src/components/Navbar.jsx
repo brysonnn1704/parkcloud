@@ -38,7 +38,7 @@ export const Navbar = ({ currentView, setView }) => {
       {/* Brand & AWS Cloud Status Pill */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <div 
-          onClick={() => setView('landing')} 
+          onClick={() => setView(isAuthenticated ? 'dashboard' : 'landing')} 
           style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
           title="ParkCloud India Edition"
         >
@@ -94,6 +94,15 @@ export const Navbar = ({ currentView, setView }) => {
 
       {/* Navigation Links */}
       <nav style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {isAuthenticated && (
+          <button 
+            onClick={() => setView('dashboard')} 
+            className={`btn btn-sm ${currentView === 'dashboard' ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            <Compass size={15} /> Dashboard
+          </button>
+        )}
+
         <button 
           onClick={() => setView('lots')} 
           className={`btn btn-sm ${currentView === 'lots' || currentView === 'lot-details' ? 'btn-primary' : 'btn-secondary'}`}
@@ -103,12 +112,6 @@ export const Navbar = ({ currentView, setView }) => {
 
         {isAuthenticated && (
           <>
-            <button 
-              onClick={() => setView('dashboard')} 
-              className={`btn btn-sm ${currentView === 'dashboard' ? 'btn-primary' : 'btn-secondary'}`}
-            >
-              <Compass size={15} /> Dashboard
-            </button>
             <button 
               onClick={() => setView('bookings')} 
               className={`btn btn-sm ${currentView === 'bookings' ? 'btn-primary' : 'btn-secondary'}`}

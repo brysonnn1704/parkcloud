@@ -40,7 +40,10 @@ export const App = () => {
         setView('login');
       }
       if (!isAdmin && currentView === 'admin') {
-        setView('landing');
+        setView(isAuthenticated ? 'dashboard' : 'landing');
+      }
+      if (isAuthenticated && currentView === 'landing') {
+        setView('dashboard');
       }
     }
   }, [currentView, isAuthenticated, isAdmin, loading]);

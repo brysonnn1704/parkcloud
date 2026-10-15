@@ -9,6 +9,7 @@ export const LoginView = ({ setView }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [activeDemo, setActiveDemo] = useState(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -30,6 +31,7 @@ export const LoginView = ({ setView }) => {
   };
 
   const handleFillDemo = (userType) => {
+    setActiveDemo(userType);
     if (userType === 'admin') {
       setEmail('admin@parkcloud.in');
       setPassword('Admin@ParkCloud2026!');
@@ -89,7 +91,7 @@ export const LoginView = ({ setView }) => {
             <button
               type="button"
               onClick={() => handleFillDemo('user')}
-              className="btn btn-secondary btn-sm"
+              className={`btn btn-sm ${activeDemo === 'user' ? 'btn-primary' : 'btn-secondary'}`}
               style={{ flex: 1, fontSize: '11px', padding: '6px 8px' }}
             >
               Demo User (Rahul)
@@ -97,8 +99,8 @@ export const LoginView = ({ setView }) => {
             <button
               type="button"
               onClick={() => handleFillDemo('admin')}
-              className="btn btn-secondary btn-sm"
-              style={{ flex: 1, fontSize: '11px', padding: '6px 8px', borderColor: 'var(--accent-purple)' }}
+              className={`btn btn-sm ${activeDemo === 'admin' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ flex: 1, fontSize: '11px', padding: '6px 8px' }}
             >
               Admin (Operations)
             </button>
@@ -114,7 +116,7 @@ export const LoginView = ({ setView }) => {
                 required
                 className="form-input"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setActiveDemo(null); }}
                 placeholder="name@example.com"
                 style={{ paddingLeft: '38px' }}
               />
@@ -130,7 +132,7 @@ export const LoginView = ({ setView }) => {
                 required
                 className="form-input"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setActiveDemo(null); }}
                 placeholder="••••••••"
                 style={{ paddingLeft: '38px', paddingRight: '38px' }}
               />
