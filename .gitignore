@@ -63,3 +63,6 @@ dist_electron/
 
 ParkCloud-Windows-Portable.zip
 
+
+backend/uploads/*.pdf
+backend/uploads/*.csv
